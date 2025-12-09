@@ -1,0 +1,12 @@
+services:
+  kfs-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    platform: linux/amd64
+    container_name: kfs-worker
+    working_dir: /work
+    volumes:
+      - ./:/work
+    tty: true
+    stdin_open: true
