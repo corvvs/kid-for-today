@@ -6,6 +6,7 @@ all: cp_image wruncmd
 
 cp_image: build
 	$(CP) $(KERNEL) img/boot
+	ls -l $(KERNEL)
 
 build: fclean
 	cargo build
