@@ -1,30 +1,4 @@
-use core::arch::asm;
-
-#[inline(always)]
-pub unsafe fn inb(port: u16) -> u8 {
-    let mut value: u8;
-    unsafe {
-        asm!(
-            "in al, dx",
-            in("dx") port,
-            out("al") value,
-            options(nomem, nostack, preserves_flags),
-        );
-    }
-    value
-}
-
-#[inline(always)]
-pub unsafe fn outb(port: u16, value: u8) {
-    unsafe {
-        asm!(
-            "out dx, al",
-            in("dx") port,
-            in("al") value,
-            options(nomem, nostack, preserves_flags),
-        );
-    }
-}
+use crate::byte_io::{inb};
 
 #[inline(always)]
 pub fn kbd_has_scancode() -> bool {
@@ -147,8 +121,12 @@ pub fn scan_key(state: &mut KbdState) -> u8 {
         0x1c => b'\n', // Enter
         0x0f => b'\t', // Tab
         0x0e => 0x08,  // Backspace
+        0x01 => 0x1b,  // Escape
 
-        _ => 0,
+        _ => {
+            // printk!("unknown scancode: {:x}\n", scancode);
+            0
+        },
     };
     if c != 0 {
         state.key = c;
