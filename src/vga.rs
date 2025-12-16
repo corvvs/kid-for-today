@@ -1,5 +1,5 @@
 use core::fmt;
-
+use crate::cursor::{vga_get_cursor_pos, vga_set_cursor_pos};
 pub struct VGAScreen {
     pub pen: u8,
     pub cursor_pos: usize,
@@ -16,11 +16,23 @@ impl VGAScreen {
         }
     }
 
+    fn read_cursor_pos(&mut self) {
+        let (row, col) = vga_get_cursor_pos();
+        self.cursor_pos = row as usize * Self::WIDTH + col as usize;
+    }
+
+    fn write_cursor_pos(&self) {
+        let row = (self.cursor_pos / Self::WIDTH) as u16;
+        let col = (self.cursor_pos % Self::WIDTH) as u16;
+        vga_set_cursor_pos(row, col);
+    }  
+
     pub fn change_pen(&mut self, pen: u8) {
         self.pen = pen;
     }
 
     pub fn write_byte(&mut self, byte: u8) {
+        self.read_cursor_pos();
         unsafe {
             let buffer = 0xb8000 as *mut u8;
             *buffer.add(self.cursor_pos * 2) = byte;
@@ -30,16 +42,19 @@ impl VGAScreen {
         if self.cursor_pos >= Self::WIDTH * Self::HEIGHT {
             self.scroll();
         }
+        self.write_cursor_pos();
     }
 
     pub fn newline(&mut self) {
+        self.read_cursor_pos();
         self.cursor_pos += Self::WIDTH - (self.cursor_pos % Self::WIDTH);
         if self.cursor_pos >= Self::WIDTH * Self::HEIGHT {
             self.scroll();
         }
+        self.write_cursor_pos();
     }
 
-    pub fn scroll(&mut self) {
+    fn scroll(&mut self) {
         unsafe {
             let buffer = 0xb8000 as *mut u8;
             for row in 1..Self::HEIGHT {

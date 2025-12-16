@@ -2,9 +2,12 @@
 #![no_main]
 // カーネル本体
 
+mod byte_io;
 mod vga;
 mod printk;
 mod key;
+mod cursor;
+
 use core::{panic::PanicInfo};
 use key::{KbdState, scan_key, kbd_has_scancode};
 

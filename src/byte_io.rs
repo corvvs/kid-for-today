@@ -1,0 +1,27 @@
+use core::arch::asm;
+
+#[inline(always)]
+pub unsafe fn inb(port: u16) -> u8 {
+    let mut value: u8;
+    unsafe {
+        asm!(
+            "in al, dx",
+            in("dx") port,
+            out("al") value,
+            options(nomem, nostack, preserves_flags),
+        );
+    }
+    value
+}
+
+#[inline(always)]
+pub unsafe fn outb(port: u16, value: u8) {
+    unsafe {
+        asm!(
+            "out dx, al",
+            in("dx") port,
+            in("al") value,
+            options(nomem, nostack, preserves_flags),
+        );
+    }
+}
