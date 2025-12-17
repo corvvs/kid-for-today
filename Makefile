@@ -8,7 +8,10 @@ cp_image: build
 	$(CP) $(KERNEL) img/boot
 	ls -l $(KERNEL)
 
-build: fclean
+fmt:
+	cargo fmt --all
+
+build: fclean fmt
 	cargo build
 
 clean:
