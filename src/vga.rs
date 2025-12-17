@@ -1,5 +1,5 @@
 use crate::{cursor::vga_set_cursor_pos, printke};
-use core::fmt;
+use core::{fmt, ptr::write_volatile};
 
 use spin::{Mutex, Once};
 
@@ -87,15 +87,13 @@ static SCREEN0: Mutex<VGAScreen> = Mutex::new(VGAScreen {
     is_active: false,
 });
 
-unsafe impl Sync for VGAScreen {}
-
 impl fmt::Write for VGAVirtualScreen {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        let active_screen = self.get_current_screen();
+        let mut active_screen = self.get_current_screen().lock();
         for byte in s.bytes() {
             match byte {
-                b'\n' => active_screen.lock().newline(),
-                byte => active_screen.lock().write_byte(byte),
+                b'\n' => active_screen.newline(),
+                byte => active_screen.write_byte(byte),
             }
         }
         Ok(())
@@ -172,9 +170,8 @@ impl VGAScreen {
             return;
         }
         unsafe {
-            let buffer = 0xb8000 as *mut u8;
-            *buffer.add(pos * 2) = (pixel & 0xFF) as u8;
-            *buffer.add(pos * 2 + 1) = (pixel >> 8) as u8;
+            let buffer = 0xb8000 as *mut u16;
+            write_volatile(buffer.add(pos), pixel);
         }
     }
 
