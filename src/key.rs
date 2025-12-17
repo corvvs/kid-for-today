@@ -1,4 +1,4 @@
-use crate::byte_io::inb;
+use crate::{byte_io::inb, printke};
 
 #[inline(always)]
 pub fn kbd_has_scancode() -> bool {
@@ -440,7 +440,7 @@ pub fn scan_key(state: &mut KbdState) -> u8 {
         0x01 => 0x1b,  // Escape
 
         _ => {
-            // printk!("unknown scancode: {:x}\n", scancode);
+            // printke!("unknown scancode: {:x}\n", scancode);
             0
         }
     };

@@ -1,4 +1,4 @@
-use crate::cursor::vga_set_cursor_pos;
+use crate::{cursor::vga_set_cursor_pos, printke};
 use core::fmt;
 
 use spin::{Mutex, Once};
@@ -10,6 +10,7 @@ pub fn writer() -> &'static Mutex<VGAVirtualScreen> {
 }
 
 pub fn switch_writer(screen_index: usize) {
+    printke!("Switching screen: {}\n", screen_index);
     let mut w = writer().lock();
     w.switch_screen(screen_index);
 }
@@ -25,10 +26,12 @@ pub struct VGAVirtualScreen {
 
 impl VGAVirtualScreen {
     pub fn new() -> Self {
-        VGAVirtualScreen {
-            screens: 2,
-            active_screen: 0,
-        }
+        let a = VGAVirtualScreen {
+            screens: 3,
+            active_screen: 1,
+        };
+        SCREEN1.lock().set_active();
+        a
     }
 
     pub fn switch_screen(&mut self, screen_index: usize) {
@@ -38,28 +41,50 @@ impl VGAVirtualScreen {
         if screen_index >= self.screens {
             return;
         }
+        {
+            let mut current_screen = self.get_current_screen().lock();
+            current_screen.set_inactive();
+        }
         self.active_screen = screen_index;
-        let screen = self.get_current_screen();
-        screen.lock().paint();
+        let mut screen = self.get_current_screen().lock();
+        screen.set_active();
+        screen.paint();
     }
 
     fn get_current_screen(&mut self) -> &'static Mutex<VGAScreen> {
         match self.active_screen {
-            1 => &SCREEN1,
-            _ => &SCREEN0,
+            2 => &SCREEN2,
+            0 => &SCREEN0,
+            _ => &SCREEN1,
         }
+    }
+
+    pub fn get_error_screen(&mut self) -> &'static Mutex<VGAScreen> {
+        &SCREEN0
+    }
+
+    pub fn is_active_error_screen(&self) -> bool {
+        self.active_screen == 0
     }
 }
 
-static SCREEN0: Mutex<VGAScreen> = Mutex::new(VGAScreen {
-    pen: 0x0f,
-    cursor_pos: 0,
-    local_buffer: [0x0720; CELLS],
-});
 static SCREEN1: Mutex<VGAScreen> = Mutex::new(VGAScreen {
     pen: 0x0f,
     cursor_pos: 0,
     local_buffer: [0x0720; CELLS],
+    is_active: false,
+});
+static SCREEN2: Mutex<VGAScreen> = Mutex::new(VGAScreen {
+    pen: 0x0f,
+    cursor_pos: 0,
+    local_buffer: [0x0720; CELLS],
+    is_active: false,
+});
+static SCREEN0: Mutex<VGAScreen> = Mutex::new(VGAScreen {
+    pen: 0x0f,
+    cursor_pos: 0,
+    local_buffer: [0x0720; CELLS],
+    is_active: false,
 });
 
 unsafe impl Sync for VGAScreen {}
@@ -81,9 +106,18 @@ pub struct VGAScreen {
     pub pen: u8,
     pub cursor_pos: usize,
     local_buffer: [u16; CELLS],
+    is_active: bool,
 }
 
 impl VGAScreen {
+    pub fn set_active(&mut self) {
+        self.is_active = true;
+    }
+
+    pub fn set_inactive(&mut self) {
+        self.is_active = false;
+    }
+
     pub fn paint(&mut self) {
         for pos in 0..CELLS {
             let pixel = self.local_buffer[pos];
@@ -114,12 +148,6 @@ impl VGAScreen {
         self.write_cursor_pos();
     }
 
-    fn write_cursor_pos(&self) {
-        let row = (self.cursor_pos / WIDTH) as u16;
-        let col = (self.cursor_pos % WIDTH) as u16;
-        vga_set_cursor_pos(row, col);
-    }
-
     fn scroll(&mut self) {
         for row in 1..HEIGHT {
             for col in 0..WIDTH {
@@ -138,12 +166,26 @@ impl VGAScreen {
 
     // VGAバッファへの書き込みアクセスはすべてここで行う
     fn write_byte_raw(&mut self, pos: usize, pixel: u16) {
+        // NOTE: VGAバッファに書き込むのは, このスクリーンがアクティブなときだけ
+        self.local_buffer[pos] = pixel;
+        if !self.is_active {
+            return;
+        }
         unsafe {
             let buffer = 0xb8000 as *mut u8;
             *buffer.add(pos * 2) = (pixel & 0xFF) as u8;
             *buffer.add(pos * 2 + 1) = (pixel >> 8) as u8;
         }
-        self.local_buffer[pos] = pixel;
+    }
+
+    fn write_cursor_pos(&self) {
+        // NOTE: カーソル位置の設定は, このスクリーンがアクティブなときだけ
+        if !self.is_active {
+            return;
+        }
+        let row = (self.cursor_pos / WIDTH) as u16;
+        let col = (self.cursor_pos % WIDTH) as u16;
+        vga_set_cursor_pos(row, col);
     }
 }
 

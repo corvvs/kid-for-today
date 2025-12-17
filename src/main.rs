@@ -32,11 +32,14 @@ pub extern "C" fn kmain() -> ! {
             if state.is_alt() {
                 match state.get_key() {
                     // スクリーンを切り替える
-                    b'1' => {
+                    b'0' => {
                         switch_writer(0);
                     }
-                    b'2' => {
+                    b'1' => {
                         switch_writer(1);
+                    }
+                    b'2' => {
+                        switch_writer(2);
                     }
                     _ => {}
                 }
