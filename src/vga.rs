@@ -39,43 +39,38 @@ impl VGAVirtualScreen {
             return;
         }
         self.active_screen = screen_index;
-        unsafe {
-            let screen = self.get_current_screen();
-            (*screen).paint();
-        }
+        let screen = self.get_current_screen();
+        screen.lock().paint();
     }
 
-    fn get_current_screen(&mut self) -> *mut VGAScreen {
+    fn get_current_screen(&mut self) -> &'static Mutex<VGAScreen> {
         match self.active_screen {
-            1 => &raw mut SCREEN1,
-            _ => &raw mut SCREEN0,
+            1 => &SCREEN1,
+            _ => &SCREEN0,
         }
     }
 }
 
-static mut SCREEN0: VGAScreen = VGAScreen {
+static SCREEN0: Mutex<VGAScreen> = Mutex::new(VGAScreen {
     pen: 0x0f,
     cursor_pos: 0,
     local_buffer: [0x0720; CELLS],
-};
-
-static mut SCREEN1: VGAScreen = VGAScreen {
+});
+static SCREEN1: Mutex<VGAScreen> = Mutex::new(VGAScreen {
     pen: 0x0f,
     cursor_pos: 0,
     local_buffer: [0x0720; CELLS],
-};
+});
 
 unsafe impl Sync for VGAScreen {}
 
 impl fmt::Write for VGAVirtualScreen {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let active_screen = self.get_current_screen();
-        unsafe {
-            for byte in s.bytes() {
-                match byte {
-                    b'\n' => (*active_screen).newline(),
-                    byte => (*active_screen).write_byte(byte),
-                }
+        for byte in s.bytes() {
+            match byte {
+                b'\n' => active_screen.lock().newline(),
+                byte => active_screen.lock().write_byte(byte),
             }
         }
         Ok(())
