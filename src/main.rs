@@ -3,19 +3,18 @@
 // カーネル本体
 
 mod byte_io;
-mod vga;
-mod printk;
-mod key;
 mod cursor;
+mod key;
+mod printk;
+mod vga;
 
-use core::{panic::PanicInfo};
-use key::{KbdState, scan_key, kbd_has_scancode};
+use core::panic::PanicInfo;
+use key::{KbdState, kbd_has_scancode, scan_key};
 use vga::switch_writer;
 
 // マングリングを無効化して、ASMから "kmain" という名前で呼べるようにする
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
-
     printk!("42\n");
 
     // キーボードループ
@@ -44,13 +43,10 @@ pub extern "C" fn kmain() -> ! {
                 continue;
             }
 
-
             printk!("{}", c as char);
         }
     }
 }
-
-
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {

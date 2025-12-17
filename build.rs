@@ -32,7 +32,7 @@ fn main() {
 
     println!("cargo:rustc-link-search=native={}", out_dir.display());
     println!("cargo:rustc-link-lib=static=boot");
-    
+
     // - boot.s を監視するようcargoに伝える
     println!("cargo:rerun-if-changed=src/boot/boot.s");
     println!("cargo:rerun-if-changed=linker.ld");

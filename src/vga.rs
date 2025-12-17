@@ -1,5 +1,5 @@
-use core::{fmt};
-use crate::cursor::{vga_set_cursor_pos};
+use crate::cursor::vga_set_cursor_pos;
+use core::fmt;
 
 use spin::{Mutex, Once};
 
@@ -16,7 +16,7 @@ pub fn switch_writer(screen_index: usize) {
 
 const WIDTH: usize = 80;
 const HEIGHT: usize = 25;
-const CELLS : usize = WIDTH * HEIGHT;
+const CELLS: usize = WIDTH * HEIGHT;
 
 pub struct VGAVirtualScreen {
     screens: usize,
@@ -53,19 +53,17 @@ impl VGAVirtualScreen {
     }
 }
 
-
-static mut SCREEN0 : VGAScreen = VGAScreen {
+static mut SCREEN0: VGAScreen = VGAScreen {
     pen: 0x0f,
     cursor_pos: 0,
     local_buffer: [0x0720; CELLS],
 };
 
-static mut SCREEN1 : VGAScreen = VGAScreen {
+static mut SCREEN1: VGAScreen = VGAScreen {
     pen: 0x0f,
     cursor_pos: 0,
     local_buffer: [0x0720; CELLS],
 };
-
 
 unsafe impl Sync for VGAScreen {}
 
@@ -83,7 +81,6 @@ impl fmt::Write for VGAVirtualScreen {
         Ok(())
     }
 }
-
 
 pub struct VGAScreen {
     pub pen: u8,
@@ -126,7 +123,7 @@ impl VGAScreen {
         let row = (self.cursor_pos / WIDTH) as u16;
         let col = (self.cursor_pos % WIDTH) as u16;
         vga_set_cursor_pos(row, col);
-    }  
+    }
 
     fn scroll(&mut self) {
         for row in 1..HEIGHT {

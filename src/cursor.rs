@@ -1,7 +1,7 @@
 use crate::byte_io::{inb, outb};
 
 const CRTC_INDEX: u16 = 0x3D4;
-const CRTC_DATA:  u16 = 0x3D5;
+const CRTC_DATA: u16 = 0x3D5;
 
 const ROWS: u16 = 25;
 const COLS: u16 = 80;
