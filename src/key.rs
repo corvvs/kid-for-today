@@ -38,6 +38,13 @@ impl KbdState {
         }
     }
     
+    pub fn is_alt(&self) -> bool {
+        self.alt
+    }
+
+    pub fn get_key(&self) -> u8 {
+        self.key
+    }
 }
 
 pub fn scan_key(state: &mut KbdState) -> u8 {

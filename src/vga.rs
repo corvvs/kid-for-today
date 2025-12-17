@@ -1,77 +1,157 @@
-use core::fmt;
-use crate::cursor::{vga_get_cursor_pos, vga_set_cursor_pos};
-pub struct VGAScreen {
-    pub pen: u8,
-    pub cursor_pos: usize,
+use core::{fmt};
+use crate::cursor::{vga_set_cursor_pos};
+
+use spin::{Mutex, Once};
+
+pub static WRITER: Once<Mutex<VGAVirtualScreen>> = Once::new();
+
+pub fn writer() -> &'static Mutex<VGAVirtualScreen> {
+    WRITER.call_once(|| Mutex::new(VGAVirtualScreen::new()))
 }
 
-impl VGAScreen {
-    const WIDTH: usize = 80;
-    const HEIGHT: usize = 25;
+pub fn switch_writer(screen_index: usize) {
+    let mut w = writer().lock();
+    w.switch_screen(screen_index);
+}
 
+const WIDTH: usize = 80;
+const HEIGHT: usize = 25;
+const CELLS : usize = WIDTH * HEIGHT;
+
+pub struct VGAVirtualScreen {
+    screens: usize,
+    active_screen: usize,
+}
+
+impl VGAVirtualScreen {
     pub fn new() -> Self {
-        VGAScreen {
-            pen: 0x0f, // 白文字・黒背景
-            cursor_pos: 0,
+        VGAVirtualScreen {
+            screens: 2,
+            active_screen: 0,
         }
     }
 
-    fn read_cursor_pos(&mut self) {
-        let (row, col) = vga_get_cursor_pos();
-        self.cursor_pos = row as usize * Self::WIDTH + col as usize;
+    pub fn switch_screen(&mut self, screen_index: usize) {
+        if screen_index == self.active_screen {
+            return;
+        }
+        if screen_index >= self.screens {
+            return;
+        }
+        self.active_screen = screen_index;
+        unsafe {
+            let screen = self.get_current_screen();
+            (*screen).paint();
+        }
     }
 
-    fn write_cursor_pos(&self) {
-        let row = (self.cursor_pos / Self::WIDTH) as u16;
-        let col = (self.cursor_pos % Self::WIDTH) as u16;
-        vga_set_cursor_pos(row, col);
-    }  
+    fn get_current_screen(&mut self) -> *mut VGAScreen {
+        match self.active_screen {
+            1 => &raw mut SCREEN1,
+            _ => &raw mut SCREEN0,
+        }
+    }
+}
+
+
+static mut SCREEN0 : VGAScreen = VGAScreen {
+    pen: 0x0f,
+    cursor_pos: 0,
+    local_buffer: [0x0720; CELLS],
+};
+
+static mut SCREEN1 : VGAScreen = VGAScreen {
+    pen: 0x0f,
+    cursor_pos: 0,
+    local_buffer: [0x0720; CELLS],
+};
+
+
+unsafe impl Sync for VGAScreen {}
+
+impl fmt::Write for VGAVirtualScreen {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        let active_screen = self.get_current_screen();
+        unsafe {
+            for byte in s.bytes() {
+                match byte {
+                    b'\n' => (*active_screen).newline(),
+                    byte => (*active_screen).write_byte(byte),
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+
+pub struct VGAScreen {
+    pub pen: u8,
+    pub cursor_pos: usize,
+    local_buffer: [u16; CELLS],
+}
+
+impl VGAScreen {
+    pub fn paint(&mut self) {
+        for pos in 0..CELLS {
+            let pixel = self.local_buffer[pos];
+            self.write_byte_raw(pos, pixel);
+        }
+        self.write_cursor_pos();
+    }
 
     pub fn change_pen(&mut self, pen: u8) {
         self.pen = pen;
     }
 
     pub fn write_byte(&mut self, byte: u8) {
-        self.read_cursor_pos();
-        unsafe {
-            let buffer = 0xb8000 as *mut u8;
-            *buffer.add(self.cursor_pos * 2) = byte;
-            *buffer.add(self.cursor_pos * 2 + 1) = self.pen;
-        }
+        let pixel = (self.pen as u16) << 8 | (byte as u16);
+        self.write_byte_raw(self.cursor_pos, pixel);
         self.cursor_pos += 1;
-        if self.cursor_pos >= Self::WIDTH * Self::HEIGHT {
+        if self.cursor_pos >= WIDTH * HEIGHT {
             self.scroll();
         }
         self.write_cursor_pos();
     }
 
     pub fn newline(&mut self) {
-        self.read_cursor_pos();
-        self.cursor_pos += Self::WIDTH - (self.cursor_pos % Self::WIDTH);
-        if self.cursor_pos >= Self::WIDTH * Self::HEIGHT {
+        self.cursor_pos += WIDTH - (self.cursor_pos % WIDTH);
+        if self.cursor_pos >= WIDTH * HEIGHT {
             self.scroll();
         }
         self.write_cursor_pos();
     }
 
+    fn write_cursor_pos(&self) {
+        let row = (self.cursor_pos / WIDTH) as u16;
+        let col = (self.cursor_pos % WIDTH) as u16;
+        vga_set_cursor_pos(row, col);
+    }  
+
     fn scroll(&mut self) {
-        unsafe {
-            let buffer = 0xb8000 as *mut u8;
-            for row in 1..Self::HEIGHT {
-                for col in 0..Self::WIDTH {
-                    let from = (row * Self::WIDTH + col) * 2;
-                    let to = ((row - 1) * Self::WIDTH + col) * 2;
-                    *buffer.add(to) = *buffer.add(from);
-                    *buffer.add(to + 1) = *buffer.add(from + 1);
-                }
-            }
-            for col in 0..Self::WIDTH {
-                let last_row = (Self::HEIGHT - 1) * Self::WIDTH + col;
-                *buffer.add(last_row * 2) = b' ';
-                *buffer.add(last_row * 2 + 1) = self.pen;
+        for row in 1..HEIGHT {
+            for col in 0..WIDTH {
+                let from = row * WIDTH + col;
+                let to = (row - 1) * WIDTH + col;
+                let cell = self.local_buffer[from];
+                self.write_byte_raw(to, cell);
             }
         }
-        self.cursor_pos = (Self::HEIGHT - 1) * Self::WIDTH;
+        for col in 0..WIDTH {
+            let last_row = (HEIGHT - 1) * WIDTH + col;
+            self.write_byte_raw(last_row, (self.pen as u16) << 8 | (b' ' as u16));
+        }
+        self.cursor_pos = (HEIGHT - 1) * WIDTH;
+    }
+
+    // VGAバッファへの書き込みアクセスはすべてここで行う
+    fn write_byte_raw(&mut self, pos: usize, pixel: u16) {
+        unsafe {
+            let buffer = 0xb8000 as *mut u8;
+            *buffer.add(pos * 2) = (pixel & 0xFF) as u8;
+            *buffer.add(pos * 2 + 1) = (pixel >> 8) as u8;
+        }
+        self.local_buffer[pos] = pixel;
     }
 }
 

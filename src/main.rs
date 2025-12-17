@@ -10,6 +10,7 @@ mod cursor;
 
 use core::{panic::PanicInfo};
 use key::{KbdState, scan_key, kbd_has_scancode};
+use vga::switch_writer;
 
 // マングリングを無効化して、ASMから "kmain" という名前で呼べるようにする
 #[unsafe(no_mangle)]
@@ -28,9 +29,24 @@ pub extern "C" fn kmain() -> ! {
         let c = scan_key(&mut state);
         if c == 0 {
             continue;
-        }
+        } else {
+            if state.is_alt() {
+                match state.get_key() {
+                    // スクリーンを切り替える
+                    b'1' => {
+                        switch_writer(0);
+                    }
+                    b'2' => {
+                        switch_writer(1);
+                    }
+                    _ => {}
+                }
+                continue;
+            }
 
-        printk!("{}", c as char);
+
+            printk!("{}", c as char);
+        }
     }
 }
 
