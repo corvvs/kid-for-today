@@ -1,4 +1,4 @@
-use crate::{cursor::vga_set_cursor_pos, printke};
+use crate::{cursor::vga_set_cursor_pos, printkd, printke};
 use core::{fmt, ptr::write_volatile};
 
 use spin::{Mutex, Once};
@@ -10,9 +10,15 @@ pub fn writer() -> &'static Mutex<VGAVirtualScreen> {
 }
 
 pub fn switch_writer(screen_index: usize) {
-    printke!("Switching screen: {}\n", screen_index);
+    printkd!("Switching screen: {}\n", screen_index);
     let mut w = writer().lock();
     w.switch_screen(screen_index);
+}
+
+pub fn switch_pen(pen: u8) {
+    let mut w = writer().lock();
+    let mut screen = w.get_current_screen().lock();
+    screen.change_pen(pen);
 }
 
 const WIDTH: usize = 80;
@@ -162,7 +168,7 @@ impl VGAScreen {
         self.cursor_pos = (HEIGHT - 1) * WIDTH;
     }
 
-    // VGAバッファへの書き込みアクセスはすべてここで行う
+    // NOTE: VGAバッファへの書き込みアクセスはすべてここで行う
     fn write_byte_raw(&mut self, pos: usize, pixel: u16) {
         // NOTE: VGAバッファに書き込むのは, このスクリーンがアクティブなときだけ
         self.local_buffer[pos] = pixel;
@@ -175,6 +181,7 @@ impl VGAScreen {
         }
     }
 
+    // NOTE: カーソル位置の書き込みアクセスはすべてここで行う
     fn write_cursor_pos(&self) {
         // NOTE: カーソル位置の設定は, このスクリーンがアクティブなときだけ
         if !self.is_active {
