@@ -16,6 +16,7 @@ use vga::switch_writer;
 #[unsafe(no_mangle)]
 pub extern "C" fn kmain() -> ! {
     printk!("42\n");
+    printkg!("** Kernel Booted **\n");
 
     // キーボードループ
     let mut state = KbdState::new();
