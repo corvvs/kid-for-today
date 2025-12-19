@@ -1,4 +1,4 @@
-use crate::{cursor::vga_set_cursor_pos, printkd, printke};
+use crate::{cursor::vga_set_cursor_pos, printkd};
 use core::{fmt, ptr::write_volatile};
 
 use spin::{Mutex, Once};
@@ -15,11 +15,11 @@ pub fn switch_writer(screen_index: usize) {
     w.switch_screen(screen_index);
 }
 
-pub fn switch_pen(pen: u8) {
-    let mut w = writer().lock();
-    let mut screen = w.get_current_screen().lock();
-    screen.change_pen(pen);
-}
+// pub fn switch_pen(pen: u8) {
+//     let mut w = writer().lock();
+//     let mut screen = w.get_current_screen().lock();
+//     screen.change_pen(pen);
+// }
 
 const WIDTH: usize = 80;
 const HEIGHT: usize = 25;
