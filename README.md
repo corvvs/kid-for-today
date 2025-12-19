@@ -9,11 +9,10 @@ x86(i686) GRUB Bootable Kernel
 - Docker
 - QEMU
 
-## ビルド
+## 起動
 
 ```
-$ make
-$ qemu-system-i386 kfs1.iso 
+$ make run
 ```
 
 ## 操作
