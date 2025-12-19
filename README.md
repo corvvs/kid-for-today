@@ -5,6 +5,7 @@ x86(i686) GRUB Bootable Kernel
 ## 依存
 
 - Nightly Rust (by rustup)
+- NASM
 - Docker
 - QEMU
 
@@ -26,7 +27,7 @@ $ qemu-system-i386 kfs1.iso
 .
 ├── .cargo
 │   └── config.toml         cargo設定
-├── build.rs                ビルドスクリプト
+├── build.rs                ビルドスクリプト; 主に src/boot/boot.s 用
 ├── Cargo.toml              クレート設定
 ├── compose.yaml            イメージ生成コンテナ compose.yaml
 ├── docker
