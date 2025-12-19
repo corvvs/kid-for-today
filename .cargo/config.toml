@@ -3,6 +3,7 @@ target = "./i686-unknown-none.json"
 
 [target.i686-unknown-none]
 rustflags = [
+    "-C", "default-linker-libraries=no",
     "-C", "link-arg=-Tlinker.ld", # リンカに `-Tlinker.ld` オプションを渡す = リンカにリンカスクリプト linker.ld を知らせる
 ]
 

@@ -1,7 +1,9 @@
 CP		:= cp
 RM 		:= rm -f
 KERNEL	:= target/i686-unknown-none/debug/kfs
+IMAGE	:= kfs1.iso
 
+.PHONY: fmt build clean fclean wup wdown wit wruncmd cp_image all run
 all: cp_image wruncmd
 
 cp_image: build
@@ -11,7 +13,7 @@ cp_image: build
 fmt:
 	cargo fmt --all
 
-build: fclean fmt
+build: fmt
 	cargo build
 
 clean:
@@ -19,7 +21,7 @@ clean:
 
 fclean: clean
 	$(RM) target
-	$(RM) img/kfs1.iso
+	$(RM) $(IMAGE)
 	$(RM) img/boot/kfs
 
 wup:
@@ -32,4 +34,7 @@ wit:
 	docker exec -it kfs-worker /bin/bash
 
 wruncmd:
-	docker exec -it kfs-worker sh -c "cd /work && grub-mkrescue -o kfs1.iso img"
+	docker exec -it kfs-worker sh -c "cd /work && grub-mkrescue -o $(IMAGE) img"
+
+run: fclean all
+	qemu-system-i386 $(IMAGE)

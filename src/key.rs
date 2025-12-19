@@ -1,4 +1,4 @@
-use crate::{byte_io::inb, printke};
+use crate::byte_io::inb;
 
 #[inline(always)]
 pub fn kbd_has_scancode() -> bool {
